@@ -8,7 +8,7 @@ from typing import Literal
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
+# from langchain_community.vectorstores import Chroma
 from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
 from typing import List
@@ -19,9 +19,10 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import asyncio
-import sys
-__import__('pysqlite3')
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+from langchain_community.vectorstores import FAISS
+# import sys
+# __import__('pysqlite3')
+# sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Load environment variables
 load_dotenv("var.env")
@@ -52,13 +53,13 @@ def load_and_process_documents():
             f"Unable to load {file_path} with any of the attempted encodings")
 
     text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=10000, chunk_overlap=2000
+        chunk_size=1000, chunk_overlap=200
     )
     doc_splits = text_splitter.split_documents(docs)
 
-    vectorstore = Chroma.from_documents(
+    vectorstore = FAISS.from_documents(
         documents=doc_splits,
-        collection_name="rag-chroma",
+        # collection_name="rag-faiss",
         embedding=embd,
     )
     return vectorstore.as_retriever()
@@ -72,18 +73,18 @@ retriever = load_and_process_documents()
 class RouteQuery(BaseModel):
     datasource: Literal["vectorstore"] = Field(
         ...,
-        description="Given a user question choose to route it to a vectorstore or use your own knowledge.",
+        description="Given a user question choose to route it to a vectorstore.",
     )
 
 
 # LLM with function call
-llm = ChatOpenAI(model="gpt-4-0125-preview", temperature=0.7)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 structured_llm_router = llm.with_structured_output(RouteQuery)
 
 # Routing prompt
 system = """You are an expert at routing a user question to a vectorstore.
 The vectorstore contains documents related to Users WhatsApp Conversation.
-Use the vectorstore for questions on related to that WhatsApp Conversation. Otherwise, use your own knowledge."""
+Use the vectorstore for questions on related to that WhatsApp Conversation."""
 route_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", system),
@@ -100,7 +101,7 @@ prompt = PromptTemplate(
 )
 
 # LLM
-llm = ChatOpenAI(model_name="gpt-4-0125-preview", temperature=0.7)
+llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=1.0)
 
 
 def format_docs(docs):
@@ -121,7 +122,7 @@ class GraphState(TypedDict):
 
 
 def initialize_memory():
-    return ConversationSummaryMemory(llm=ChatOpenAI(model_name="gpt-4-0125-preview", temperature=0))
+    return ConversationSummaryMemory(llm=ChatOpenAI(model_name="gpt-4o-mini", temperature=0))
 
 
 def retrieve(state):
