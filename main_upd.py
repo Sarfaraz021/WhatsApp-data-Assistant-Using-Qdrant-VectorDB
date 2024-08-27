@@ -19,6 +19,9 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 import asyncio
+import sys
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Load environment variables
 load_dotenv("var.env")
